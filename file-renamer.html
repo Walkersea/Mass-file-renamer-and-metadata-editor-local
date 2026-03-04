@@ -1,0 +1,1659 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MASSRENAME — Batch File Renamer & Metadata Editor</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jsmediatags/3.9.5/jsmediatags.min.js"></script>
+<style>
+  :root {
+    --bg: #0d0d0d;
+    --bg2: #141414;
+    --bg3: #1a1a1a;
+    --bg4: #222222;
+    --border: #2a2a2a;
+    --border2: #333;
+    --accent: #f5a623;
+    --accent2: #e8940f;
+    --accent-dim: rgba(245,166,35,0.12);
+    --accent-glow: rgba(245,166,35,0.25);
+    --text: #e8e8e8;
+    --text2: #999;
+    --text3: #555;
+    --red: #e05252;
+    --green: #52c77f;
+    --blue: #5299e0;
+    --radius: 4px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    height: 100%;
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    overflow: hidden;
+  }
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--text3); }
+
+  /* LAYOUT */
+  #app { display: flex; flex-direction: column; height: 100vh; }
+
+  /* HEADER */
+  header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 20px;
+    height: 52px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg);
+    flex-shrink: 0;
+    position: relative;
+    z-index: 10;
+  }
+  .logo {
+    font-family: 'Syne', sans-serif;
+    font-weight: 800;
+    font-size: 18px;
+    letter-spacing: 0.08em;
+    color: var(--accent);
+  }
+  .logo span { color: var(--text3); font-weight: 400; }
+  .header-stats {
+    display: flex; gap: 24px;
+    color: var(--text3);
+    font-size: 11px;
+  }
+  .header-stats .stat strong { color: var(--text2); }
+  .header-actions { display: flex; gap: 8px; }
+
+  /* MAIN */
+  main {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+  }
+
+  /* FILE PANEL */
+  #file-panel {
+    width: 480px;
+    min-width: 300px;
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    background: var(--bg);
+    flex-shrink: 0;
+  }
+  .panel-header {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--bg2);
+    flex-shrink: 0;
+  }
+  .panel-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    color: var(--text3);
+    text-transform: uppercase;
+  }
+
+  /* DROP ZONE */
+  #drop-zone {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    cursor: pointer;
+    border: 2px dashed var(--border2);
+    margin: 20px;
+    border-radius: var(--radius);
+    transition: all 0.2s;
+    color: var(--text3);
+    position: relative;
+  }
+  #drop-zone:hover, #drop-zone.dragover {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: var(--accent-dim);
+  }
+  #drop-zone .dz-icon { font-size: 40px; opacity: 0.5; }
+  #drop-zone .dz-label { font-size: 14px; font-weight: 500; color: var(--text2); }
+  #drop-zone .dz-sub { font-size: 11px; color: var(--text3); text-align: center; line-height: 1.6; }
+  #drop-zone .dz-btn {
+    margin-top: 8px;
+    padding: 8px 20px;
+    background: var(--bg4);
+    border: 1px solid var(--border2);
+    color: var(--text2);
+    border-radius: var(--radius);
+    cursor: pointer;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    transition: all 0.15s;
+    display: flex; gap: 8px; align-items: center;
+  }
+  #drop-zone .dz-btn:hover { border-color: var(--accent); color: var(--accent); }
+  #file-input { display: none; }
+  #folder-input { display: none; }
+
+  /* FILE LIST */
+  #file-list-wrap {
+    display: none;
+    flex-direction: column;
+    flex: 1;
+    overflow: hidden;
+  }
+  .file-list-toolbar {
+    padding: 8px 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+    background: var(--bg2);
+  }
+  .fl-check-all {
+    width: 14px; height: 14px;
+    accent-color: var(--accent);
+    cursor: pointer;
+  }
+  .fl-count { color: var(--text3); font-size: 11px; flex: 1; }
+  #file-list {
+    flex: 1;
+    overflow-y: auto;
+  }
+  .file-item {
+    display: flex;
+    align-items: center;
+    padding: 8px 12px;
+    gap: 10px;
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+    transition: background 0.1s;
+    position: relative;
+  }
+  .file-item:hover { background: var(--bg3); }
+  .file-item.selected { background: var(--accent-dim); }
+  .file-item.active { background: var(--accent-dim); border-left: 2px solid var(--accent); }
+  .fi-check {
+    width: 14px; height: 14px;
+    accent-color: var(--accent);
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+  .fi-icon {
+    width: 28px; height: 28px;
+    border-radius: 4px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px;
+    font-weight: 700;
+    flex-shrink: 0;
+    letter-spacing: 0;
+  }
+  .fi-names { flex: 1; min-width: 0; }
+  .fi-original {
+    font-size: 12px;
+    color: var(--text2);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .fi-new {
+    font-size: 12px;
+    color: var(--accent);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    display: none;
+  }
+  .fi-new.changed { display: block; }
+  .fi-size { font-size: 10px; color: var(--text3); flex-shrink: 0; width: 60px; text-align: right; }
+
+  /* RIGHT PANEL */
+  #right-panel {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    background: var(--bg);
+  }
+
+  /* TABS */
+  .tabs {
+    display: flex;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg2);
+    flex-shrink: 0;
+  }
+  .tab {
+    padding: 14px 20px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text3);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: all 0.15s;
+    font-family: 'Syne', sans-serif;
+  }
+  .tab:hover { color: var(--text2); }
+  .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+  /* TAB CONTENT */
+  .tab-content { display: none; flex: 1; overflow-y: auto; padding: 20px; }
+  .tab-content.active { display: block; }
+
+  /* FORM ELEMENTS */
+  .section {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    margin-bottom: 12px;
+    overflow: hidden;
+  }
+  .section-head {
+    padding: 10px 14px;
+    background: var(--bg3);
+    border-bottom: 1px solid var(--border);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    color: var(--text3);
+    text-transform: uppercase;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    user-select: none;
+  }
+  .section-head .sh-icon { font-size: 13px; }
+  .section-head .sh-toggle { margin-left: auto; font-size: 10px; color: var(--text3); transition: transform 0.2s; }
+  .section-head.collapsed .sh-toggle { transform: rotate(-90deg); }
+  .section-body { padding: 14px; }
+  .section-body.collapsed { display: none; }
+
+  .field { margin-bottom: 12px; }
+  .field:last-child { margin-bottom: 0; }
+  .field label {
+    display: block;
+    font-size: 10px;
+    color: var(--text3);
+    margin-bottom: 5px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  .field input[type="text"], .field input[type="number"], .field select, .field textarea {
+    width: 100%;
+    padding: 8px 10px;
+    background: var(--bg4);
+    border: 1px solid var(--border2);
+    border-radius: var(--radius);
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  .field input:focus, .field select:focus, .field textarea:focus {
+    border-color: var(--accent);
+  }
+  .field input[type="checkbox"] {
+    accent-color: var(--accent);
+    margin-right: 6px;
+    cursor: pointer;
+  }
+  .field select option { background: var(--bg4); }
+  .field textarea { resize: vertical; min-height: 60px; }
+
+  .row { display: flex; gap: 8px; }
+  .row .field { flex: 1; }
+
+  /* BUTTONS */
+  .btn {
+    padding: 8px 14px;
+    border-radius: var(--radius);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    border: 1px solid transparent;
+    transition: all 0.15s;
+    display: inline-flex; align-items: center; gap: 6px;
+    white-space: nowrap;
+  }
+  .btn-primary {
+    background: var(--accent);
+    color: #0d0d0d;
+    border-color: var(--accent);
+  }
+  .btn-primary:hover { background: var(--accent2); }
+  .btn-secondary {
+    background: var(--bg4);
+    color: var(--text2);
+    border-color: var(--border2);
+  }
+  .btn-secondary:hover { border-color: var(--accent); color: var(--accent); }
+  .btn-danger {
+    background: transparent;
+    color: var(--red);
+    border-color: var(--red);
+  }
+  .btn-danger:hover { background: rgba(224,82,82,0.1); }
+  .btn-sm { padding: 5px 10px; font-size: 11px; }
+  .btn-ghost { background: transparent; border-color: transparent; color: var(--text3); }
+  .btn-ghost:hover { color: var(--text); border-color: var(--border2); }
+  .btn:disabled { opacity: 0.4; pointer-events: none; }
+
+  .btn-group { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+
+  /* PREVIEW TAB */
+  #preview-list {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
+  .preview-item {
+    display: grid;
+    grid-template-columns: 1fr 24px 1fr;
+    gap: 8px;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border);
+    align-items: center;
+    font-size: 11px;
+  }
+  .preview-item:last-child { border-bottom: none; }
+  .preview-orig { color: var(--text2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .preview-arrow { color: var(--text3); text-align: center; }
+  .preview-new { color: var(--accent); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .preview-new.same { color: var(--text3); }
+  .preview-head {
+    display: grid;
+    grid-template-columns: 1fr 24px 1fr;
+    gap: 8px;
+    padding: 8px 12px;
+    background: var(--bg3);
+    border-bottom: 1px solid var(--border);
+    font-size: 10px;
+    color: var(--text3);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+
+  /* METADATA TAB */
+  .meta-placeholder {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    height: 200px; gap: 10px;
+    color: var(--text3);
+    font-size: 12px;
+    text-align: center;
+  }
+  .meta-placeholder .mp-icon { font-size: 32px; opacity: 0.4; }
+  .meta-file-info {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 12px 14px;
+    margin-bottom: 12px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  .meta-info-item { display: flex; flex-direction: column; gap: 3px; }
+  .meta-info-label { font-size: 9px; color: var(--text3); letter-spacing: 0.1em; text-transform: uppercase; }
+  .meta-info-value { font-size: 12px; color: var(--text2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  /* TAGS */
+  .tag {
+    display: inline-flex; align-items: center;
+    padding: 2px 7px;
+    border-radius: 2px;
+    font-size: 10px;
+    font-weight: 600;
+  }
+  .tag-audio { background: rgba(82,153,224,0.15); color: var(--blue); }
+  .tag-image { background: rgba(82,199,127,0.15); color: var(--green); }
+  .tag-video { background: rgba(245,166,35,0.15); color: var(--accent); }
+  .tag-doc   { background: rgba(224,82,82,0.15); color: var(--red); }
+  .tag-other { background: var(--bg4); color: var(--text3); }
+
+  /* DOWNLOAD FOOTER */
+  #download-bar {
+    padding: 12px 20px;
+    border-top: 1px solid var(--border);
+    background: var(--bg2);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-shrink: 0;
+  }
+  .dl-info { flex: 1; font-size: 11px; color: var(--text3); }
+  .dl-info strong { color: var(--text2); }
+
+  /* TOAST */
+  #toast {
+    position: fixed; bottom: 80px; right: 20px;
+    background: var(--bg3);
+    border: 1px solid var(--border2);
+    border-radius: var(--radius);
+    padding: 10px 16px;
+    font-size: 12px;
+    color: var(--text);
+    transform: translateY(20px);
+    opacity: 0;
+    pointer-events: none;
+    transition: all 0.3s;
+    z-index: 999;
+    max-width: 300px;
+  }
+  #toast.show { transform: translateY(0); opacity: 1; }
+  #toast.success { border-color: var(--green); color: var(--green); }
+  #toast.error { border-color: var(--red); color: var(--red); }
+
+  /* DIFF HIGHLIGHT */
+  .diff-removed { background: rgba(224,82,82,0.25); color: var(--red); }
+  .diff-added { background: rgba(82,199,127,0.2); color: var(--green); }
+
+  /* EMPTY STATE */
+  .empty-state {
+    text-align: center; padding: 40px 20px;
+    color: var(--text3); font-size: 12px;
+  }
+
+  /* CONFLICT */
+  .conflict { border-left: 2px solid var(--red) !important; }
+  .conflict .fi-new { color: var(--red) !important; }
+
+  /* Resize handle */
+  #resize-handle {
+    width: 4px;
+    background: var(--border);
+    cursor: col-resize;
+    flex-shrink: 0;
+    transition: background 0.2s;
+  }
+  #resize-handle:hover { background: var(--accent); }
+
+  /* Loading spinner */
+  .spinner {
+    width: 14px; height: 14px;
+    border: 2px solid var(--border2);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    display: inline-block;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Scroll fade */
+  .scroll-fade {
+    -webkit-mask-image: linear-gradient(to bottom, black 95%, transparent 100%);
+    mask-image: linear-gradient(to bottom, black 95%, transparent 100%);
+  }
+
+  /* Number badge */
+  .badge {
+    display: inline-flex; align-items: center; justify-content: center;
+    min-width: 18px; height: 18px;
+    padding: 0 5px;
+    border-radius: 9px;
+    font-size: 10px;
+    background: var(--accent);
+    color: #0d0d0d;
+    font-weight: 700;
+    margin-left: 6px;
+  }
+
+  @media (max-width: 768px) {
+    #file-panel { width: 100%; border-right: none; }
+    main { flex-direction: column; }
+    #right-panel { min-height: 400px; }
+    #resize-handle { display: none; }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <!-- HEADER -->
+  <header>
+    <div class="logo">MASSRENAME<span> //</span></div>
+    <div class="header-stats">
+      <div class="stat">FILES <strong id="stat-total">0</strong></div>
+      <div class="stat">SELECTED <strong id="stat-selected">0</strong></div>
+      <div class="stat">RENAMED <strong id="stat-renamed">0</strong></div>
+    </div>
+    <div class="header-actions">
+      <button class="btn btn-ghost btn-sm" onclick="resetAll()">⟳ Reset All</button>
+      <button class="btn btn-secondary btn-sm" onclick="document.getElementById('folder-input').click()">📁 Add Folder</button>
+      <button class="btn btn-secondary btn-sm" onclick="document.getElementById('file-input').click()">＋ Add Files</button>
+    </div>
+  </header>
+
+  <main>
+    <!-- FILE PANEL -->
+    <div id="file-panel">
+      <div class="panel-header">
+        <span class="panel-title">Files</span>
+        <div style="display:flex;gap:6px">
+          <button class="btn btn-ghost btn-sm" onclick="clearFiles()" id="clear-btn" style="display:none">✕ Clear</button>
+          <button class="btn btn-ghost btn-sm" onclick="sortFiles('name')">↕ Name</button>
+          <button class="btn btn-ghost btn-sm" onclick="sortFiles('size')">↕ Size</button>
+          <button class="btn btn-ghost btn-sm" onclick="sortFiles('type')">↕ Type</button>
+        </div>
+      </div>
+
+      <!-- DROP ZONE -->
+      <div id="drop-zone" onclick="document.getElementById('file-input').click()">
+        <div class="dz-icon">⬇</div>
+        <div class="dz-label">Drop files or folder here</div>
+        <div class="dz-sub">Supports any file type<br>Rename & edit metadata in browser</div>
+        <button class="dz-btn" onclick="event.stopPropagation(); document.getElementById('file-input').click()">📄 Browse Files</button>
+        <button class="dz-btn" onclick="event.stopPropagation(); document.getElementById('folder-input').click()">📁 Browse Folder</button>
+      </div>
+      <input type="file" id="file-input" multiple>
+      <input type="file" id="folder-input" webkitdirectory multiple>
+
+      <!-- FILE LIST -->
+      <div id="file-list-wrap">
+        <div class="file-list-toolbar">
+          <input type="checkbox" class="fl-check-all" id="check-all" onchange="toggleSelectAll(this.checked)">
+          <span class="fl-count" id="fl-count">0 files</span>
+          <button class="btn btn-ghost btn-sm" onclick="invertSelection()">⇄ Invert</button>
+          <button class="btn btn-ghost btn-sm" onclick="selectByType()">🎯 By Type</button>
+        </div>
+        <div id="file-list" class="scroll-fade"></div>
+      </div>
+    </div>
+
+    <!-- RESIZE HANDLE -->
+    <div id="resize-handle"></div>
+
+    <!-- RIGHT PANEL -->
+    <div id="right-panel">
+      <div class="tabs">
+        <div class="tab active" onclick="switchTab('rename')">✏ Rename</div>
+        <div class="tab" onclick="switchTab('metadata')">🏷 Metadata</div>
+        <div class="tab" onclick="switchTab('preview')">👁 Preview<span id="preview-badge" class="badge" style="display:none">0</span></div>
+      </div>
+
+      <!-- RENAME TAB -->
+      <div class="tab-content active" id="tab-rename">
+
+        <div class="section">
+          <div class="section-head" onclick="toggleSection(this)">
+            <span class="sh-icon">🔍</span> Find & Replace
+            <span class="sh-toggle">▾</span>
+          </div>
+          <div class="section-body">
+            <div class="row">
+              <div class="field">
+                <label>Find</label>
+                <input type="text" id="fr-find" placeholder="text to find…" oninput="applyRules()">
+              </div>
+              <div class="field">
+                <label>Replace with</label>
+                <input type="text" id="fr-replace" placeholder="replacement…" oninput="applyRules()">
+              </div>
+            </div>
+            <div class="field">
+              <label>
+                <input type="checkbox" id="fr-regex" onchange="applyRules()"> Use Regular Expression
+              </label>
+              <label>
+                <input type="checkbox" id="fr-case" onchange="applyRules()"> Case Sensitive
+              </label>
+              <label>
+                <input type="checkbox" id="fr-all" checked onchange="applyRules()"> Replace All Occurrences
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <div class="section">
+          <div class="section-head" onclick="toggleSection(this)">
+            <span class="sh-icon">✂</span> Remove Characters
+            <span class="sh-toggle">▾</span>
+          </div>
+          <div class="section-body">
+            <div class="row">
+              <div class="field">
+                <label>Remove from Start</label>
+                <input type="number" id="rm-start" placeholder="0" min="0" value="0" oninput="applyRules()">
+              </div>
+              <div class="field">
+                <label>Remove from End</label>
+                <input type="number" id="rm-end" placeholder="0" min="0" value="0" oninput="applyRules()">
+              </div>
+            </div>
+            <div class="field">
+              <label>Remove Specific Characters</label>
+              <input type="text" id="rm-chars" placeholder='e.g.  _ - ( )' oninput="applyRules()">
+            </div>
+            <div class="field">
+              <label>
+                <input type="checkbox" id="rm-ext" onchange="applyRules()"> Apply to extension too (not just name)
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <div class="section">
+          <div class="section-head" onclick="toggleSection(this)">
+            <span class="sh-icon">＋</span> Add Text
+            <span class="sh-toggle">▾</span>
+          </div>
+          <div class="section-body">
+            <div class="row">
+              <div class="field">
+                <label>Prefix (add to start)</label>
+                <input type="text" id="add-prefix" placeholder="prefix_" oninput="applyRules()">
+              </div>
+              <div class="field">
+                <label>Suffix (add before ext)</label>
+                <input type="text" id="add-suffix" placeholder="_v2" oninput="applyRules()">
+              </div>
+            </div>
+            <div class="field">
+              <label>Insert at Position</label>
+              <div class="row">
+                <div class="field">
+                  <input type="number" id="ins-pos" placeholder="Position (0=start)" min="0" value="" oninput="applyRules()">
+                </div>
+                <div class="field">
+                  <input type="text" id="ins-text" placeholder="Text to insert" oninput="applyRules()">
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="section">
+          <div class="section-head" onclick="toggleSection(this)">
+            <span class="sh-icon">🔢</span> Numbering
+            <span class="sh-toggle">▾</span>
+          </div>
+          <div class="section-body">
+            <div class="row">
+              <div class="field">
+                <label>Mode</label>
+                <select id="num-mode" onchange="applyRules()">
+                  <option value="none">Disabled</option>
+                  <option value="prefix">Add as Prefix</option>
+                  <option value="suffix">Add as Suffix</option>
+                  <option value="replace">Replace Filename</option>
+                </select>
+              </div>
+              <div class="field">
+                <label>Start Number</label>
+                <input type="number" id="num-start" value="1" min="0" oninput="applyRules()">
+              </div>
+            </div>
+            <div class="row">
+              <div class="field">
+                <label>Increment</label>
+                <input type="number" id="num-step" value="1" min="1" oninput="applyRules()">
+              </div>
+              <div class="field">
+                <label>Padding (digits)</label>
+                <input type="number" id="num-pad" value="2" min="1" max="8" oninput="applyRules()">
+              </div>
+            </div>
+            <div class="field">
+              <label>Separator</label>
+              <input type="text" id="num-sep" placeholder='e.g. _ or -' value="_" oninput="applyRules()">
+            </div>
+          </div>
+        </div>
+
+        <div class="section">
+          <div class="section-head" onclick="toggleSection(this)">
+            <span class="sh-icon">Aa</span> Case
+            <span class="sh-toggle">▾</span>
+          </div>
+          <div class="section-body">
+            <div class="field">
+              <label>Transform</label>
+              <select id="case-mode" onchange="applyRules()">
+                <option value="none">No Change</option>
+                <option value="lower">lowercase</option>
+                <option value="upper">UPPERCASE</option>
+                <option value="title">Title Case</option>
+                <option value="camel">camelCase</option>
+                <option value="snake">snake_case</option>
+                <option value="kebab">kebab-case</option>
+                <option value="sentence">Sentence case</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div class="section">
+          <div class="section-head" onclick="toggleSection(this)">
+            <span class="sh-icon">📁</span> Extension
+            <span class="sh-toggle">▾</span>
+          </div>
+          <div class="section-body">
+            <div class="field">
+              <label>Change Extension to</label>
+              <input type="text" id="ext-change" placeholder="e.g. txt (leave blank to keep)" oninput="applyRules()">
+            </div>
+            <div class="field">
+              <label>
+                <input type="checkbox" id="ext-remove" onchange="applyRules()"> Remove Extension Entirely
+              </label>
+              <label>
+                <input type="checkbox" id="ext-lower" onchange="applyRules()"> Lowercase Extension
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <div class="section">
+          <div class="section-head" onclick="toggleSection(this)">
+            <span class="sh-icon">⚡</span> Quick Presets
+            <span class="sh-toggle">▾</span>
+          </div>
+          <div class="section-body">
+            <div class="btn-group">
+              <button class="btn btn-secondary btn-sm" onclick="applyPreset('trim')">Trim Whitespace</button>
+              <button class="btn btn-secondary btn-sm" onclick="applyPreset('spaces')">Spaces → Underscores</button>
+              <button class="btn btn-secondary btn-sm" onclick="applyPreset('dots')">Dots → Spaces</button>
+              <button class="btn btn-secondary btn-sm" onclick="applyPreset('dashes')">Dashes → Spaces</button>
+              <button class="btn btn-secondary btn-sm" onclick="applyPreset('clean')">Remove Special Chars</button>
+              <button class="btn btn-secondary btn-sm" onclick="applyPreset('nodup')">Remove Duplicate Spaces</button>
+              <button class="btn btn-secondary btn-sm" onclick="applyPreset('parens')">Remove (parentheses)</button>
+              <button class="btn btn-secondary btn-sm" onclick="applyPreset('brackets')">Remove [brackets]</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="btn-group" style="margin-top:4px">
+          <button class="btn btn-primary" onclick="applyRules()">↺ Preview Changes</button>
+          <button class="btn btn-secondary" onclick="clearRules()">✕ Clear Rules</button>
+        </div>
+      </div>
+
+      <!-- METADATA TAB -->
+      <div class="tab-content" id="tab-metadata">
+        <div id="meta-placeholder" class="meta-placeholder">
+          <div class="mp-icon">🏷</div>
+          <div>Click a file in the list to view & edit its metadata</div>
+          <div style="color:var(--text3);font-size:11px">Supports ID3 tags for audio files (MP3, etc.)</div>
+        </div>
+        <div id="meta-editor" style="display:none">
+          <div class="meta-file-info" id="meta-file-info"></div>
+          <div id="meta-fields"></div>
+          <div class="btn-group" style="margin-top:8px">
+            <button class="btn btn-primary" id="meta-save-btn" onclick="saveMetadata()">💾 Save Metadata</button>
+            <button class="btn btn-secondary" onclick="clearMetadataEditor()">✕ Clear</button>
+          </div>
+          <div id="meta-status" style="margin-top:8px;font-size:11px;color:var(--text3)"></div>
+        </div>
+      </div>
+
+      <!-- PREVIEW TAB -->
+      <div class="tab-content" id="tab-preview">
+        <div id="preview-empty" class="empty-state">No renames pending — add files and set rules to preview changes.</div>
+        <div id="preview-list" style="display:none"></div>
+      </div>
+
+      <!-- DOWNLOAD BAR -->
+      <div id="download-bar">
+        <div class="dl-info">
+          <span id="dl-info-text">Load files to begin</span>
+        </div>
+        <button class="btn btn-secondary btn-sm" onclick="downloadSelected()" id="dl-selected-btn" disabled>⬇ Selected as ZIP</button>
+        <button class="btn btn-primary" onclick="downloadAll()" id="dl-all-btn" disabled>⬇ Download All as ZIP</button>
+      </div>
+    </div>
+  </main>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ══════════════════════════════════════════════
+// STATE
+// ══════════════════════════════════════════════
+let files = [];       // {id, file, originalName, newName, ext, baseName, selected, meta, metaEdited}
+let activeFileId = null;
+let metaEdits = {};   // fileId → { field: value }
+
+// ══════════════════════════════════════════════
+// FILE LOADING
+// ══════════════════════════════════════════════
+document.getElementById('file-input').addEventListener('change', e => addFiles(e.target.files));
+document.getElementById('folder-input').addEventListener('change', e => addFiles(e.target.files));
+
+function addFiles(fileList) {
+  const newFiles = Array.from(fileList).map((f, i) => {
+    const lastDot = f.name.lastIndexOf('.');
+    const hasExt = lastDot > 0;
+    return {
+      id: Date.now() + '_' + Math.random().toString(36).slice(2),
+      file: f,
+      originalName: f.name,
+      newName: f.name,
+      baseName: hasExt ? f.name.slice(0, lastDot) : f.name,
+      ext: hasExt ? f.name.slice(lastDot) : '',
+      selected: true,
+      meta: null,
+      metaEdited: false,
+    };
+  });
+  files = [...files, ...newFiles];
+  renderFileList();
+  applyRules();
+  updateStats();
+  updateDownloadBar();
+  showDZ(files.length === 0);
+  document.getElementById('clear-btn').style.display = files.length ? '' : 'none';
+  toast(`Added ${newFiles.length} file${newFiles.length!==1?'s':''}`, 'success');
+}
+
+function showDZ(show) {
+  document.getElementById('drop-zone').style.display = show ? '' : 'none';
+  document.getElementById('file-list-wrap').style.display = show ? 'none' : 'flex';
+}
+
+// DRAG & DROP
+const dropZone = document.getElementById('drop-zone');
+document.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
+document.addEventListener('dragleave', e => { if (!e.relatedTarget) dropZone.classList.remove('dragover'); });
+document.addEventListener('drop', e => {
+  e.preventDefault();
+  dropZone.classList.remove('dragover');
+  const items = e.dataTransfer.items;
+  const filePromises = [];
+  if (items) {
+    for (let item of items) {
+      const entry = item.webkitGetAsEntry ? item.webkitGetAsEntry() : null;
+      if (entry && entry.isDirectory) {
+        filePromises.push(readDirectory(entry));
+      } else if (item.kind === 'file') {
+        const f = item.getAsFile();
+        if (f) filePromises.push(Promise.resolve([f]));
+      }
+    }
+    Promise.all(filePromises).then(arrays => {
+      const allFiles = [].concat(...arrays);
+      if (allFiles.length) addFiles(allFiles);
+    });
+  } else {
+    addFiles(e.dataTransfer.files);
+  }
+});
+
+function readDirectory(entry) {
+  return new Promise(resolve => {
+    const results = [];
+    const reader = entry.createReader();
+    function readEntries() {
+      reader.readEntries(entries => {
+        if (!entries.length) { resolve(results); return; }
+        const promises = entries.map(e => {
+          if (e.isFile) return new Promise(r => e.file(f => r([f])));
+          if (e.isDirectory) return readDirectory(e);
+          return Promise.resolve([]);
+        });
+        Promise.all(promises).then(arrays => {
+          results.push(...[].concat(...arrays));
+          readEntries();
+        });
+      });
+    }
+    readEntries();
+  });
+}
+
+// ══════════════════════════════════════════════
+// RENDERING
+// ══════════════════════════════════════════════
+function renderFileList() {
+  const list = document.getElementById('file-list');
+  list.innerHTML = '';
+  if (!files.length) { showDZ(true); return; }
+  files.forEach(f => {
+    const div = document.createElement('div');
+    div.className = 'file-item' + (f.selected ? ' selected' : '') + (f.id === activeFileId ? ' active' : '');
+    div.dataset.id = f.id;
+    const changed = f.newName !== f.originalName;
+    const conflict = checkConflict(f);
+    if (conflict) div.classList.add('conflict');
+    div.innerHTML = `
+      <input type="checkbox" class="fi-check" ${f.selected?'checked':''} onclick="event.stopPropagation();toggleSelect('${f.id}',this.checked)">
+      <div class="fi-icon" style="${getFileIconStyle(f.ext)}">${getFileIconText(f.ext)}</div>
+      <div class="fi-names">
+        <div class="fi-original">${escHtml(f.originalName)}</div>
+        <div class="fi-new ${changed?'changed':''}">${changed ? '→ '+escHtml(f.newName) : ''}</div>
+      </div>
+      <div class="fi-size">${formatSize(f.file.size)}</div>
+    `;
+    div.addEventListener('click', () => setActiveFile(f.id));
+    list.appendChild(div);
+  });
+  document.getElementById('fl-count').textContent = `${files.length} file${files.length!==1?'s':''}`;
+  document.getElementById('check-all').checked = files.every(f => f.selected);
+  updateStats();
+  updatePreview();
+}
+
+function checkConflict(f) {
+  return files.some(other => other.id !== f.id && other.newName === f.newName);
+}
+
+function getFileIconStyle(ext) {
+  ext = ext.toLowerCase();
+  const audio = ['.mp3','.wav','.flac','.aac','.ogg','.m4a','.wma'];
+  const image = ['.jpg','.jpeg','.png','.gif','.webp','.svg','.bmp','.tiff'];
+  const video = ['.mp4','.mkv','.avi','.mov','.wmv','.flv','.webm'];
+  const doc   = ['.pdf','.doc','.docx','.txt','.md','.csv','.xls','.xlsx','.ppt'];
+  if (audio.includes(ext)) return 'background:rgba(82,153,224,0.15);color:#5299e0';
+  if (image.includes(ext)) return 'background:rgba(82,199,127,0.15);color:#52c77f';
+  if (video.includes(ext)) return 'background:rgba(245,166,35,0.15);color:#f5a623';
+  if (doc.includes(ext)) return 'background:rgba(224,82,82,0.15);color:#e05252';
+  return 'background:var(--bg4);color:var(--text3)';
+}
+
+function getFileIconText(ext) {
+  ext = ext.toLowerCase().replace('.','');
+  return ext ? ext.slice(0,4).toUpperCase() : '?';
+}
+
+function formatSize(bytes) {
+  if (bytes < 1024) return bytes + 'B';
+  if (bytes < 1048576) return (bytes/1024).toFixed(1) + 'KB';
+  if (bytes < 1073741824) return (bytes/1048576).toFixed(1) + 'MB';
+  return (bytes/1073741824).toFixed(2) + 'GB';
+}
+
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ══════════════════════════════════════════════
+// SELECTION
+// ══════════════════════════════════════════════
+function toggleSelect(id, checked) {
+  const f = files.find(x => x.id === id);
+  if (f) f.selected = checked;
+  updateStats();
+  updateDownloadBar();
+  const item = document.querySelector(`.file-item[data-id="${id}"]`);
+  if (item) item.classList.toggle('selected', checked);
+  document.getElementById('check-all').checked = files.every(f => f.selected);
+}
+
+function toggleSelectAll(checked) {
+  files.forEach(f => f.selected = checked);
+  renderFileList();
+  updateDownloadBar();
+}
+
+function invertSelection() {
+  files.forEach(f => f.selected = !f.selected);
+  renderFileList();
+  updateDownloadBar();
+}
+
+function selectByType() {
+  const types = [...new Set(files.map(f => f.ext.toLowerCase()))];
+  if (!types.length) return;
+  const chosen = prompt(`Enter extension(s) to select (comma-separated):\nAvailable: ${types.join(', ')}`);
+  if (!chosen) return;
+  const exts = chosen.split(',').map(s => s.trim().toLowerCase().replace(/^\./,'')).filter(Boolean);
+  files.forEach(f => f.selected = exts.includes(f.ext.toLowerCase().replace('.','')));
+  renderFileList();
+  updateDownloadBar();
+}
+
+// ══════════════════════════════════════════════
+// ACTIVE FILE
+// ══════════════════════════════════════════════
+function setActiveFile(id) {
+  activeFileId = id;
+  renderFileList();
+  const f = files.find(x => x.id === id);
+  if (f) loadMetadataEditor(f);
+}
+
+// ══════════════════════════════════════════════
+// STATS
+// ══════════════════════════════════════════════
+function updateStats() {
+  document.getElementById('stat-total').textContent = files.length;
+  document.getElementById('stat-selected').textContent = files.filter(f => f.selected).length;
+  document.getElementById('stat-renamed').textContent = files.filter(f => f.newName !== f.originalName).length;
+}
+
+function updateDownloadBar() {
+  const total = files.length;
+  const sel = files.filter(f => f.selected).length;
+  document.getElementById('dl-info-text').innerHTML = total
+    ? `<strong>${total}</strong> files loaded — <strong>${sel}</strong> selected`
+    : 'Load files to begin';
+  document.getElementById('dl-all-btn').disabled = !total;
+  document.getElementById('dl-selected-btn').disabled = !sel;
+}
+
+// ══════════════════════════════════════════════
+// RULES ENGINE
+// ══════════════════════════════════════════════
+function applyRules() {
+  const selectedIds = new Set(files.filter(f => f.selected).map(f => f.id));
+
+  files.forEach((f, idx) => {
+    if (!selectedIds.has(f.id)) {
+      f.newName = f.originalName;
+      return;
+    }
+
+    const includeExt = document.getElementById('rm-ext').checked;
+    let base = f.baseName;
+    let ext = f.ext;
+
+    // 1. Find & Replace
+    const frFind = document.getElementById('fr-find').value;
+    if (frFind) {
+      try {
+        const flags = document.getElementById('fr-all').checked ? (document.getElementById('fr-case').checked ? 'g' : 'gi') : (document.getElementById('fr-case').checked ? '' : 'i');
+        const pattern = document.getElementById('fr-regex').checked ? new RegExp(frFind, flags) : new RegExp(escapeRegex(frFind), flags);
+        const repl = document.getElementById('fr-replace').value;
+        if (includeExt) {
+          const full = base + ext;
+          const newFull = full.replace(pattern, repl);
+          const dot = newFull.lastIndexOf('.');
+          base = dot > 0 ? newFull.slice(0, dot) : newFull;
+          ext = dot > 0 ? newFull.slice(dot) : '';
+        } else {
+          base = base.replace(pattern, repl);
+        }
+      } catch(e) { /* invalid regex */ }
+    }
+
+    // 2. Remove from start/end
+    const rmStart = parseInt(document.getElementById('rm-start').value) || 0;
+    const rmEnd = parseInt(document.getElementById('rm-end').value) || 0;
+    if (rmStart > 0) base = base.slice(rmStart);
+    if (rmEnd > 0) base = base.slice(0, Math.max(0, base.length - rmEnd));
+
+    // 3. Remove specific chars
+    const rmChars = document.getElementById('rm-chars').value;
+    if (rmChars) {
+      rmChars.split('').forEach(c => {
+        base = base.split(c).join('');
+      });
+    }
+
+    // 4. Prefix / Suffix
+    const prefix = document.getElementById('add-prefix').value;
+    const suffix = document.getElementById('add-suffix').value;
+    if (prefix) base = prefix + base;
+    if (suffix) base = base + suffix;
+
+    // 5. Insert at position
+    const insPos = document.getElementById('ins-pos').value;
+    const insText = document.getElementById('ins-text').value;
+    if (insText && insPos !== '') {
+      const pos = Math.min(parseInt(insPos)||0, base.length);
+      base = base.slice(0, pos) + insText + base.slice(pos);
+    }
+
+    // 6. Numbering
+    const numMode = document.getElementById('num-mode').value;
+    if (numMode !== 'none') {
+      const start = parseInt(document.getElementById('num-start').value) || 1;
+      const step = parseInt(document.getElementById('num-step').value) || 1;
+      const pad = parseInt(document.getElementById('num-pad').value) || 2;
+      const sep = document.getElementById('num-sep').value;
+      const selFiles = files.filter(f2 => selectedIds.has(f2.id));
+      const selIdx = selFiles.findIndex(f2 => f2.id === f.id);
+      const num = String(start + selIdx * step).padStart(pad, '0');
+      if (numMode === 'prefix') base = num + sep + base;
+      else if (numMode === 'suffix') base = base + sep + num;
+      else if (numMode === 'replace') base = num;
+    }
+
+    // 7. Case
+    const caseMode = document.getElementById('case-mode').value;
+    base = applyCase(base, caseMode);
+
+    // 8. Extension changes
+    if (document.getElementById('ext-remove').checked) {
+      ext = '';
+    } else if (document.getElementById('ext-change').value) {
+      let newExt = document.getElementById('ext-change').value.trim();
+      if (newExt && !newExt.startsWith('.')) newExt = '.' + newExt;
+      ext = newExt;
+    } else if (document.getElementById('ext-lower').checked) {
+      ext = ext.toLowerCase();
+    }
+
+    f.newName = base + ext;
+    if (!f.newName) f.newName = f.originalName; // fallback
+  });
+
+  renderFileList();
+  updatePreview();
+}
+
+function applyCase(s, mode) {
+  switch(mode) {
+    case 'lower': return s.toLowerCase();
+    case 'upper': return s.toUpperCase();
+    case 'title': return s.replace(/\b\w/g, c => c.toUpperCase());
+    case 'camel': return s.toLowerCase().replace(/[\s_-]+(\w)/g, (_, c) => c.toUpperCase());
+    case 'snake': return s.toLowerCase().replace(/[\s-]+/g, '_');
+    case 'kebab': return s.toLowerCase().replace(/[\s_]+/g, '-');
+    case 'sentence': return s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
+    default: return s;
+  }
+}
+
+function escapeRegex(s) {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function clearRules() {
+  ['fr-find','fr-replace','rm-chars','add-prefix','add-suffix','ins-pos','ins-text','ext-change','num-sep'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = id === 'num-sep' ? '_' : '';
+  });
+  ['rm-start','rm-end'].forEach(id => document.getElementById(id).value = '0');
+  ['fr-regex','fr-case','rm-ext','ext-remove','ext-lower'].forEach(id => document.getElementById(id).checked = false);
+  document.getElementById('fr-all').checked = true;
+  document.getElementById('num-mode').value = 'none';
+  document.getElementById('num-start').value = '1';
+  document.getElementById('num-step').value = '1';
+  document.getElementById('num-pad').value = '2';
+  document.getElementById('case-mode').value = 'none';
+  files.forEach(f => f.newName = f.originalName);
+  renderFileList();
+  updatePreview();
+  toast('Rules cleared');
+}
+
+// PRESETS
+function applyPreset(type) {
+  switch(type) {
+    case 'trim':
+      document.getElementById('fr-find').value = '^\\s+|\\s+$';
+      document.getElementById('fr-replace').value = '';
+      document.getElementById('fr-regex').checked = true;
+      break;
+    case 'spaces':
+      document.getElementById('fr-find').value = ' ';
+      document.getElementById('fr-replace').value = '_';
+      document.getElementById('fr-regex').checked = false;
+      document.getElementById('fr-all').checked = true;
+      break;
+    case 'dots':
+      document.getElementById('fr-find').value = '\\.(?=.*\\.)';
+      document.getElementById('fr-replace').value = ' ';
+      document.getElementById('fr-regex').checked = true;
+      break;
+    case 'dashes':
+      document.getElementById('fr-find').value = '-';
+      document.getElementById('fr-replace').value = ' ';
+      document.getElementById('fr-regex').checked = false;
+      document.getElementById('fr-all').checked = true;
+      break;
+    case 'clean':
+      document.getElementById('fr-find').value = '[^a-zA-Z0-9._\\- ]';
+      document.getElementById('fr-replace').value = '';
+      document.getElementById('fr-regex').checked = true;
+      break;
+    case 'nodup':
+      document.getElementById('fr-find').value = '\\s{2,}';
+      document.getElementById('fr-replace').value = ' ';
+      document.getElementById('fr-regex').checked = true;
+      break;
+    case 'parens':
+      document.getElementById('fr-find').value = '\\s*\\([^)]*\\)';
+      document.getElementById('fr-replace').value = '';
+      document.getElementById('fr-regex').checked = true;
+      break;
+    case 'brackets':
+      document.getElementById('fr-find').value = '\\s*\\[[^\\]]*\\]';
+      document.getElementById('fr-replace').value = '';
+      document.getElementById('fr-regex').checked = true;
+      break;
+  }
+  applyRules();
+}
+
+// ══════════════════════════════════════════════
+// PREVIEW
+// ══════════════════════════════════════════════
+function updatePreview() {
+  const changed = files.filter(f => f.newName !== f.originalName);
+  const badge = document.getElementById('preview-badge');
+  badge.textContent = changed.length;
+  badge.style.display = changed.length ? '' : 'none';
+
+  const empty = document.getElementById('preview-empty');
+  const list = document.getElementById('preview-list');
+  if (!changed.length) {
+    empty.style.display = '';
+    list.style.display = 'none';
+    return;
+  }
+  empty.style.display = 'none';
+  list.style.display = '';
+  list.innerHTML = `
+    <div class="preview-head">
+      <div>Original Name</div><div>→</div><div>New Name</div>
+    </div>
+    ${files.map(f => `
+      <div class="preview-item">
+        <div class="preview-orig">${escHtml(f.originalName)}</div>
+        <div class="preview-arrow">→</div>
+        <div class="preview-new ${f.newName===f.originalName?'same':''}">${escHtml(f.newName)}</div>
+      </div>
+    `).join('')}
+  `;
+}
+
+// ══════════════════════════════════════════════
+// TABS
+// ══════════════════════════════════════════════
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach((t,i) => {
+    t.classList.toggle('active', ['rename','metadata','preview'][i] === name);
+  });
+  document.querySelectorAll('.tab-content').forEach(tc => {
+    tc.classList.toggle('active', tc.id === 'tab-' + name);
+  });
+}
+
+function toggleSection(head) {
+  head.classList.toggle('collapsed');
+  head.nextElementSibling.classList.toggle('collapsed');
+}
+
+// ══════════════════════════════════════════════
+// METADATA
+// ══════════════════════════════════════════════
+function loadMetadataEditor(f) {
+  switchTab('metadata');
+  const placeholder = document.getElementById('meta-placeholder');
+  const editor = document.getElementById('meta-editor');
+  placeholder.style.display = 'none';
+  editor.style.display = 'block';
+
+  // File info
+  const infoEl = document.getElementById('meta-file-info');
+  infoEl.innerHTML = `
+    <div class="meta-info-item"><div class="meta-info-label">Name</div><div class="meta-info-value">${escHtml(f.originalName)}</div></div>
+    <div class="meta-info-item"><div class="meta-info-label">Size</div><div class="meta-info-value">${formatSize(f.file.size)}</div></div>
+    <div class="meta-info-item"><div class="meta-info-label">Type</div><div class="meta-info-value">${f.file.type || 'unknown'}</div></div>
+    <div class="meta-info-item"><div class="meta-info-label">Modified</div><div class="meta-info-value">${new Date(f.file.lastModified).toLocaleDateString()}</div></div>
+  `;
+
+  const fieldsEl = document.getElementById('meta-fields');
+  const status = document.getElementById('meta-status');
+  status.textContent = '';
+
+  // Determine type
+  const ext = f.ext.toLowerCase();
+  const isAudio = ['.mp3','.flac','.ogg','.m4a','.aac','.wav'].includes(ext);
+  const isImage = ['.jpg','.jpeg','.png','.webp','.gif','.bmp','.tiff'].includes(ext);
+
+  if (isAudio) {
+    fieldsEl.innerHTML = `<div style="color:var(--text3);font-size:11px;margin-bottom:12px;display:flex;align-items:center;gap:8px"><div class="spinner" id="meta-spinner"></div> Reading audio tags…</div>`;
+    // Use jsmediatags to read
+    if (typeof jsmediatags !== 'undefined') {
+      jsmediatags.read(f.file, {
+        onSuccess(tag) {
+          document.getElementById('meta-spinner') && (document.getElementById('meta-spinner').parentElement.style.display = 'none');
+          f.meta = tag.tags || {};
+          renderAudioFields(f, fieldsEl);
+        },
+        onError(err) {
+          f.meta = {};
+          document.getElementById('meta-spinner') && (document.getElementById('meta-spinner').parentElement.style.display = 'none');
+          renderAudioFields(f, fieldsEl);
+          status.textContent = 'Could not read existing tags. You can still write new ones.';
+        }
+      });
+    } else {
+      f.meta = {};
+      renderAudioFields(f, fieldsEl);
+      status.textContent = 'jsmediatags not loaded. Tags will be written fresh.';
+    }
+  } else if (isImage) {
+    fieldsEl.innerHTML = `
+      <div class="section">
+        <div class="section-head"><span class="sh-icon">🖼</span> Image File</div>
+        <div class="section-body">
+          <div style="color:var(--text3);font-size:12px;line-height:1.7">
+            EXIF/IPTC metadata editing for images requires native tools.<br>
+            Use the Rename tab to rename this file.<br><br>
+            <strong style="color:var(--text2)">Tip:</strong> For full EXIF editing, try ExifTool (desktop) or an online EXIF editor.
+          </div>
+        </div>
+      </div>
+    `;
+    document.getElementById('meta-save-btn').disabled = true;
+  } else {
+    fieldsEl.innerHTML = `
+      <div class="section">
+        <div class="section-head"><span class="sh-icon">📄</span> File Info</div>
+        <div class="section-body">
+          <div style="color:var(--text3);font-size:12px;line-height:1.7">
+            Binary metadata editing for this file type is not supported in-browser.<br>
+            Use the Rename tab to rename this file with new metadata-like names.
+          </div>
+        </div>
+      </div>
+    `;
+    document.getElementById('meta-save-btn').disabled = true;
+  }
+}
+
+function renderAudioFields(f, container) {
+  const tags = f.meta || {};
+  const saved = metaEdits[f.id] || {};
+  document.getElementById('meta-save-btn').disabled = false;
+
+  const fields = [
+    { id: 'TIT2', label: 'Title', placeholder: 'Track title' },
+    { id: 'TPE1', label: 'Artist', placeholder: 'Artist name' },
+    { id: 'TALB', label: 'Album', placeholder: 'Album name' },
+    { id: 'TRCK', label: 'Track #', placeholder: 'e.g. 1 or 1/12' },
+    { id: 'TYER', label: 'Year', placeholder: 'e.g. 2024' },
+    { id: 'TCON', label: 'Genre', placeholder: 'e.g. Rock' },
+    { id: 'TPE2', label: 'Album Artist', placeholder: 'Album artist' },
+    { id: 'TCOM', label: 'Composer', placeholder: 'Composer name' },
+    { id: 'COMM', label: 'Comment', placeholder: 'Comment' },
+    { id: 'TCOP', label: 'Copyright', placeholder: 'Copyright info' },
+  ];
+
+  const getVal = (key, shortKey) => {
+    if (saved[key] !== undefined) return saved[key];
+    if (tags[shortKey] !== undefined) return typeof tags[shortKey] === 'object' ? (tags[shortKey].text || '') : tags[shortKey];
+    if (tags[key] !== undefined) return typeof tags[key] === 'object' ? (tags[key].text || '') : tags[key];
+    return '';
+  };
+
+  container.innerHTML = `
+    <div class="section">
+      <div class="section-head"><span class="sh-icon">🎵</span> Audio Metadata (ID3 Tags)</div>
+      <div class="section-body">
+        ${fields.map(fld => `
+          <div class="field">
+            <label>${fld.label}</label>
+            <input type="text" id="meta-${fld.id}" data-tag="${fld.id}" placeholder="${fld.placeholder}"
+              value="${escHtml(getVal(fld.id, fld.label.toLowerCase()))}"
+              oninput="onMetaInput('${f.id}','${fld.id}',this.value)">
+          </div>
+        `).join('')}
+      </div>
+    </div>
+  `;
+}
+
+function onMetaInput(fileId, tag, value) {
+  if (!metaEdits[fileId]) metaEdits[fileId] = {};
+  metaEdits[fileId][tag] = value;
+}
+
+function saveMetadata() {
+  const f = files.find(x => x.id === activeFileId);
+  if (!f) return;
+  const edits = metaEdits[f.id] || {};
+  if (!Object.keys(edits).length) { toast('No changes to save', 'error'); return; }
+  f.metaEdited = true;
+  document.getElementById('meta-status').innerHTML = `<span style="color:var(--green)">✓ Metadata saved — will be applied when downloading</span>`;
+  toast('Metadata saved', 'success');
+}
+
+function clearMetadataEditor() {
+  activeFileId = null;
+  document.getElementById('meta-placeholder').style.display = '';
+  document.getElementById('meta-editor').style.display = 'none';
+  renderFileList();
+}
+
+// ══════════════════════════════════════════════
+// ID3v2 WRITER (Simple ID3v2.3)
+// ══════════════════════════════════════════════
+function writeID3Tags(fileBuffer, tags) {
+  const frames = [];
+
+  const tagMap = {
+    'TIT2': 'title', 'TPE1': 'artist', 'TALB': 'album',
+    'TYER': 'year', 'TCON': 'genre', 'TRCK': 'track',
+    'TPE2': 'albumArtist', 'TCOM': 'composer', 'TCOP': 'copyright'
+  };
+
+  const encodeFrame = (id, value) => {
+    if (!value) return null;
+    const textBytes = new TextEncoder().encode(value);
+    const frameSize = 1 + textBytes.length; // encoding byte + text
+    const frame = new Uint8Array(10 + frameSize);
+    // Frame ID (4 bytes)
+    for (let i = 0; i < 4; i++) frame[i] = id.charCodeAt(i);
+    // Frame size (4 bytes, big endian, NOT synchsafe in ID3v2.3)
+    frame[4] = (frameSize >> 24) & 0xff;
+    frame[5] = (frameSize >> 16) & 0xff;
+    frame[6] = (frameSize >> 8) & 0xff;
+    frame[7] = frameSize & 0xff;
+    // Flags (2 bytes, zero)
+    frame[8] = 0; frame[9] = 0;
+    // Encoding: 0x00 = ISO-8859-1 / 0x03 = UTF-8
+    frame[10] = 0x03; // UTF-8
+    frame.set(textBytes, 11);
+    return frame;
+  };
+
+  for (const [frameId, value] of Object.entries(tags)) {
+    if (value && frameId !== 'COMM') {
+      const frame = encodeFrame(frameId, value);
+      if (frame) frames.push(frame);
+    }
+  }
+
+  // Handle COMM (comment) separately
+  if (tags['COMM']) {
+    const text = tags['COMM'];
+    const textBytes = new TextEncoder().encode(text);
+    const frameSize = 1 + 3 + 1 + textBytes.length; // enc + lang + BOM + text
+    const frame = new Uint8Array(10 + frameSize);
+    for (let i = 0; i < 4; i++) frame[i] = 'COMM'.charCodeAt(i);
+    frame[4] = (frameSize >> 24) & 0xff;
+    frame[5] = (frameSize >> 16) & 0xff;
+    frame[6] = (frameSize >> 8) & 0xff;
+    frame[7] = frameSize & 0xff;
+    frame[8] = 0; frame[9] = 0;
+    frame[10] = 0x03; // UTF-8
+    frame[11] = 0x65; frame[12] = 0x6e; frame[13] = 0x67; // "eng"
+    frame[14] = 0x00; // short desc
+    frame.set(textBytes, 15);
+    frames.push(frame);
+  }
+
+  const totalFrameSize = frames.reduce((a, f) => a + f.length, 0);
+  const tagSize = totalFrameSize;
+
+  // Synchsafe integer encoding for tag size
+  const encodeSynchsafe = (n) => {
+    const b = new Uint8Array(4);
+    b[3] = n & 0x7f; n >>= 7;
+    b[2] = n & 0x7f; n >>= 7;
+    b[1] = n & 0x7f; n >>= 7;
+    b[0] = n & 0x7f;
+    return b;
+  };
+
+  const header = new Uint8Array(10);
+  header[0] = 0x49; header[1] = 0x44; header[2] = 0x33; // "ID3"
+  header[3] = 0x03; header[4] = 0x00; // version 2.3.0
+  header[5] = 0x00; // flags
+  const ss = encodeSynchsafe(tagSize);
+  header[6] = ss[0]; header[7] = ss[1]; header[8] = ss[2]; header[9] = ss[3];
+
+  // Strip existing ID3 tag from original file
+  const orig = new Uint8Array(fileBuffer);
+  let audioStart = 0;
+  if (orig[0]===0x49 && orig[1]===0x44 && orig[2]===0x33) {
+    const existingSize = ((orig[6]&0x7f)<<21)|((orig[7]&0x7f)<<14)|((orig[8]&0x7f)<<7)|(orig[9]&0x7f);
+    audioStart = 10 + existingSize;
+  }
+
+  const audioData = orig.slice(audioStart);
+  const totalSize = header.length + totalFrameSize + audioData.length;
+  const result = new Uint8Array(totalSize);
+  let offset = 0;
+  result.set(header, offset); offset += header.length;
+  for (const frame of frames) {
+    result.set(frame, offset); offset += frame.length;
+  }
+  result.set(audioData, offset);
+  return result.buffer;
+}
+
+// ══════════════════════════════════════════════
+// DOWNLOAD
+// ══════════════════════════════════════════════
+async function downloadAll() {
+  if (!files.length) return;
+  await downloadFiles(files);
+}
+
+async function downloadSelected() {
+  const sel = files.filter(f => f.selected);
+  if (!sel.length) return;
+  await downloadFiles(sel);
+}
+
+async function downloadFiles(fileArr) {
+  const dlBtn = document.getElementById('dl-all-btn');
+  dlBtn.innerHTML = '<div class="spinner"></div> Packing…';
+  dlBtn.disabled = true;
+
+  try {
+    const zip = new JSZip();
+    const nameCount = {};
+
+    for (const f of fileArr) {
+      let name = f.newName;
+      // Deduplicate names
+      if (nameCount[name] !== undefined) {
+        nameCount[name]++;
+        const dot = name.lastIndexOf('.');
+        if (dot > 0) name = name.slice(0, dot) + `_${nameCount[name]}` + name.slice(dot);
+        else name = name + `_${nameCount[name]}`;
+      } else {
+        nameCount[name] = 0;
+      }
+
+      // Check if metadata needs to be written
+      const edits = metaEdits[f.id];
+      if (edits && Object.keys(edits).length && f.metaEdited) {
+        const isAudio = ['.mp3','.flac','.ogg','.m4a','.aac','.wav'].includes(f.ext.toLowerCase());
+        if (isAudio && f.ext.toLowerCase() === '.mp3') {
+          try {
+            const buffer = await f.file.arrayBuffer();
+            const modified = writeID3Tags(buffer, edits);
+            zip.file(name, modified);
+            continue;
+          } catch(e) {
+            console.warn('ID3 write failed', e);
+          }
+        }
+      }
+      zip.file(name, f.file);
+    }
+
+    const blob = await zip.generateAsync({ type: 'blob', compression: 'STORE' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `renamed_files_${Date.now()}.zip`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
+    toast(`Downloaded ${fileArr.length} file${fileArr.length!==1?'s':''} as ZIP`, 'success');
+  } catch(e) {
+    toast('Download failed: ' + e.message, 'error');
+    console.error(e);
+  } finally {
+    dlBtn.innerHTML = '⬇ Download All as ZIP';
+    dlBtn.disabled = false;
+  }
+}
+
+// ══════════════════════════════════════════════
+// SORT
+// ══════════════════════════════════════════════
+function sortFiles(by) {
+  if (by === 'name') files.sort((a,b) => a.originalName.localeCompare(b.originalName));
+  if (by === 'size') files.sort((a,b) => b.file.size - a.file.size);
+  if (by === 'type') files.sort((a,b) => a.ext.localeCompare(b.ext));
+  renderFileList();
+  applyRules();
+}
+
+// ══════════════════════════════════════════════
+// RESET / CLEAR
+// ══════════════════════════════════════════════
+function resetAll() {
+  if (files.length && !confirm('Reset everything? All files and changes will be lost.')) return;
+  files = [];
+  activeFileId = null;
+  metaEdits = {};
+  showDZ(true);
+  clearRules();
+  updateStats();
+  updateDownloadBar();
+  document.getElementById('clear-btn').style.display = 'none';
+  clearMetadataEditor();
+}
+
+function clearFiles() {
+  resetAll();
+}
+
+// ══════════════════════════════════════════════
+// TOAST
+// ══════════════════════════════════════════════
+let toastTimer;
+function toast(msg, type='') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'show ' + type;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.className = '', 2500);
+}
+
+// ══════════════════════════════════════════════
+// RESIZE HANDLE
+// ══════════════════════════════════════════════
+const handle = document.getElementById('resize-handle');
+const filePanel = document.getElementById('file-panel');
+let dragging = false, startX, startW;
+handle.addEventListener('mousedown', e => {
+  dragging = true; startX = e.clientX; startW = filePanel.offsetWidth;
+  document.body.style.cursor = 'col-resize'; document.body.style.userSelect = 'none';
+});
+document.addEventListener('mousemove', e => {
+  if (!dragging) return;
+  const w = Math.max(200, Math.min(700, startW + e.clientX - startX));
+  filePanel.style.width = w + 'px';
+});
+document.addEventListener('mouseup', () => {
+  dragging = false;
+  document.body.style.cursor = ''; document.body.style.userSelect = '';
+});
+</script>
+</body>
+</html>
