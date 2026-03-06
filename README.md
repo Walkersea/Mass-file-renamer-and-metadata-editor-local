@@ -1,8 +1,6 @@
 # Mass-file-renamer-and-metadata-editor-local
 # MASSRENAME //
 
-> A single HTML file for batch-renaming files and editing metadata entirely in your browser — offline, private, zero installs.
-
 ![HTML](https://img.shields.io/badge/HTML-single%20file-f5a623?style=flat-square)
 ![Offline](https://img.shields.io/badge/works-100%25%20offline-52c77f?style=flat-square)
 ![No server](https://img.shields.io/badge/no%20server-no%20uploads-5299e0?style=flat-square)
